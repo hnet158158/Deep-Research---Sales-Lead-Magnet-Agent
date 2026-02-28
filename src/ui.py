@@ -34,7 +34,8 @@ def build_ui() -> gr.Blocks:
         gr.Markdown("# AI Lead Magnet Generator")
 
         with gr.Row():
-            with gr.Column(scale=2):
+            # Левая колонка: 1/3 ширины - ввод, настройки, логи
+            with gr.Column(scale=1):
                 topic_input = gr.Textbox(
                     label="Тема лид-магнита",
                     placeholder="Введите тему для генерации...",
@@ -42,7 +43,6 @@ def build_ui() -> gr.Blocks:
                 )
                 generate_btn = gr.Button("Сгенерировать", variant="primary", size="lg")
 
-            with gr.Column(scale=1):
                 with gr.Accordion("Настройки", open=True):
                     words_slider = gr.Slider(
                         minimum=100,
@@ -66,8 +66,6 @@ def build_ui() -> gr.Blocks:
                         label="Креативность (Temperature)"
                     )
 
-        with gr.Row():
-            with gr.Column():
                 logs_output = gr.Textbox(
                     label="Логи выполнения",
                     lines=10,
@@ -75,14 +73,14 @@ def build_ui() -> gr.Blocks:
                     autoscroll=True
                 )
 
-            with gr.Column():
-                markdown_output = gr.Markdown(label="Предпросмотр")
-                file_output = gr.File(label="Скачать файл", interactive=False)
+            # Правая колонка: 2/3 ширины - только блок просмотра статьи
+            with gr.Column(scale=2):
+                markdown_output = gr.Markdown(label="Статья", elem_id="article-preview")
 
         generate_btn.click(
             fn=on_generate_click,
             inputs=[topic_input, words_slider, chapters_slider, temp_slider],
-            outputs=[logs_output, markdown_output, file_output]
+            outputs=[logs_output, markdown_output]
         )
 
     logger.debug("[UI][build_ui] Belief: Gradio UI построен | Input: None | Expected: gr.Blocks")
@@ -94,14 +92,14 @@ def on_generate_click(
     words_per_chapter: int,
     chapter_count: int,
     temperature: float
-) -> Generator[Tuple[str, Optional[str], Optional[str]], None, None]:
+) -> Generator[Tuple[str, Optional[str]], None, None]:
     """
     Обработчик клика на кнопку генерации.
 
     # START_CONTRACT_on_generate_click
     # Input: topic, words_per_chapter, chapter_count, temperature
     # Russian Intent: Запустить генерацию и стримить прогресс в UI
-    # Output: Generator - стрим обновлений (logs, markdown, filepath)
+    # Output: Generator - стрим обновлений (logs, markdown)
     # END_CONTRACT_on_generate_click
     """
     logger.debug(
@@ -119,7 +117,7 @@ def on_generate_click(
         )
 
         if not validate_ui_settings(ui_settings):
-            yield ("❌ Invalid settings", None, None)
+            yield ("❌ Invalid settings", None)
             return
 
         # Сохранение настроек
@@ -137,19 +135,20 @@ def on_generate_click(
             tavily_client
         )
 
-        # Запуск pipeline
-        yield from stream_logs(orchestrator.run_pipeline(topic))
+        # Запуск pipeline (без file output в UI)
+        for logs, markdown, _ in stream_logs(orchestrator.run_pipeline(topic)):
+            yield (logs, markdown)
 
     except StageError as e:
         error_msg = format_ui_error(e)
-        yield (error_msg, None, None)
+        yield (error_msg, None)
     except ValueError as e:
         error_msg = f"❌ Configuration Error: {e}"
-        yield (error_msg, None, None)
+        yield (error_msg, None)
     except Exception as e:
         logger.error(f"[UI][on_generate_click] Unexpected error: {e}")
         error_msg = f"❌ Unexpected error: {type(e).__name__}"
-        yield (error_msg, None, None)
+        yield (error_msg, None)
 
 
 def format_ui_state(
