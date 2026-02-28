@@ -101,7 +101,7 @@ class GenerationOrchestrator:
     def _run_query_builder(self, topic: str) -> Generator[Tuple[str, Optional[str], Optional[str]], None, None]:
         """Stage 1: Query Builder."""
         stage = PipelineStage.QUERY_BUILDER.value
-        yield (emit_log(stage, "Generating search queries..."), None, None)
+        yield (emit_log(stage, "Генерация поисковых запросов..."), None, None)
 
         try:
             prompt = build_query_prompt(topic, query_count=5)
@@ -111,7 +111,7 @@ class GenerationOrchestrator:
             logger.debug(f"[Orchestrator][_run_query_builder] Belief: Запросы сгенерированы | Input: topic | Expected: List[str], Count: {len(query_model.queries)}")
 
             self._queries = query_model.queries
-            yield (emit_log(stage, f"Generated {len(query_model.queries)} search queries"), None, None)
+            yield (emit_log(stage, f"Сгенерировано {len(query_model.queries)} поисковых запросов"), None, None)
 
         except Exception as e:
             raise handle_stage_failure(stage, e, recoverable=False)
@@ -119,13 +119,13 @@ class GenerationOrchestrator:
     def _run_search(self) -> Generator[Tuple[str, Optional[str], Optional[str]], None, str]:
         """Stage 2: Search."""
         stage = PipelineStage.SEARCH.value
-        yield (emit_log(stage, "Searching for research data..."), None, None)
+        yield (emit_log(stage, "Поиск исследовательских данных..."), None, None)
 
         try:
             aggregate = run_sequential_search(self._queries, self.tavily_client)
 
             if check_search_failure(aggregate):
-                error_msg = f"All {len(self._queries)} search queries failed"
+                error_msg = f"Все {len(self._queries)} поисковых запросов не удались"
                 yield (emit_log(stage, error_msg), None, None)
                 raise handle_stage_failure(stage, Exception(error_msg), recoverable=True)
 
@@ -134,7 +134,7 @@ class GenerationOrchestrator:
 
             logger.debug(f"[Orchestrator][_run_search] Belief: Поиск завершен | Input: queries | Expected: str, Sources: {len(merged)}")
 
-            yield (emit_log(stage, f"Found {len(merged)} research sources"), None, None)
+            yield (emit_log(stage, f"Найдено {len(merged)} исследовательских источников"), None, None)
             return research_context
 
         except StageError:
@@ -145,7 +145,7 @@ class GenerationOrchestrator:
     def _run_structure_planner(self, research_context: str) -> Generator[Tuple[str, Optional[str], Optional[str]], None, dict]:
         """Stage 3: Structure Planner."""
         stage = PipelineStage.STRUCTURE_PLANNER.value
-        yield (emit_log(stage, "Planning document structure..."), None, None)
+        yield (emit_log(stage, "Планирование структуры документа..."), None, None)
 
         try:
             prompt = build_structure_prompt(research_context, self.ui_settings.chapter_count)
@@ -154,7 +154,7 @@ class GenerationOrchestrator:
 
             logger.debug(f"[Orchestrator][_run_structure_planner] Belief: Структура спланирована | Input: research_context | Expected: dict, Chapters: {len(structure.chapters)}")
 
-            yield (emit_log(stage, f"Planned {len(structure.chapters)} chapters"), None, None)
+            yield (emit_log(stage, f"Запланировано {len(structure.chapters)} глав"), None, None)
             return structure
 
         except Exception as e:
@@ -166,7 +166,7 @@ class GenerationOrchestrator:
         chapters = []
 
         for i, chapter_plan in enumerate(structure.chapters, 1):
-            yield (emit_log(stage, f"Writing chapter {i}/{len(structure.chapters)}..."), None, None)
+            yield (emit_log(stage, f"Написание главы {i}/{len(structure.chapters)}..."), None, None)
 
             try:
                 prompt = build_chapter_writer_prompt(
@@ -182,15 +182,15 @@ class GenerationOrchestrator:
                 logger.debug(f"[Orchestrator][_run_chapter_writer] Belief: Глава написана | Input: chapter_title={chapter_plan.title} | Expected: str")
 
             except Exception as e:
-                raise handle_stage_failure(f"{stage} (Chapter {i})", e, recoverable=False)
+                raise handle_stage_failure(f"{stage} (Глава {i})", e, recoverable=False)
 
-        yield (emit_log(stage, f"All {len(chapters)} chapters written"), None, None)
+        yield (emit_log(stage, f"Все {len(chapters)} глав написаны"), None, None)
         return chapters
 
     def _run_assembly_and_editor(self, structure: dict, chapters: list) -> Generator[Tuple[str, Optional[str], Optional[str]], None, str]:
         """Stage 5: Assembly + Final Editor."""
         stage = PipelineStage.ASSEMBLY.value
-        yield (emit_log(stage, "Assembling document..."), None, None)
+        yield (emit_log(stage, "Сборка документа..."), None, None)
 
         try:
             # Assembly
@@ -202,10 +202,18 @@ class GenerationOrchestrator:
                 conclusions=structure.conclusions
             )
 
-            yield (emit_log(stage, "Running final editor..."), None, None)
+            yield (emit_log(stage, "Запуск финального редактора..."), None, None)
 
-            # Final Editor
-            editor_prompt = build_final_editor_prompt(draft)
+            # Final Editor - читаем содержимое файла вместо пути
+            from pathlib import Path
+            draft_path = Path(draft)
+            if draft_path.exists():
+                with open(draft_path, "r", encoding="utf-8") as f:
+                    draft_content = f.read()
+            else:
+                draft_content = draft  # Если файл не существует, используем как есть
+
+            editor_prompt = build_final_editor_prompt(draft_content)
             final_markdown = self.llm_client.generate_markdown(editor_prompt, temperature=0.3)
 
             # Save final version
@@ -217,7 +225,7 @@ class GenerationOrchestrator:
 
             logger.debug(f"[Orchestrator][_run_assembly_and_editor] Belief: Документ собран и отредактирован | Input: structure, chapters | Expected: str, Filepath: {filepath}")
 
-            yield (emit_log(stage, f"Document saved to {filepath}"), final_markdown, str(filepath))
+            yield (emit_log(stage, f"Документ сохранен в {filepath}"), final_markdown, str(filepath))
 
             return str(filepath)
 

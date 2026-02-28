@@ -74,17 +74,17 @@ def build_query_prompt(topic: str, query_count: int) -> str:
     """
     logger.debug("[Schemas][build_query_prompt] Belief: Формирование промпта Query Builder | Input: topic, query_count | Expected: str")
 
-    prompt = f"""Role: Search Query Refiner Agent
-You refine a user's topic into highly targeted search queries for deep research.
+    prompt = f"""Роль: Агент по уточнению поисковых запросов
+Вы уточняете тему пользователя в целевые поисковые запросы для глубокого исследования.
 
-Goal: Provide {query_count} well-crafted, distinct search queries based on the user's stated topic. These queries must be geared towards doing deep research on the subject.
+Цель: Предоставить {query_count} хорошо сформулированных, уникальных поисковых запросов на основе темы пользователя. Эти запросы должны быть направлены на глубокое исследование темы.
 
-Instructions:
-1. Analyze User Input: Identify the exact concepts or keywords in the user's topic. Do NOT introduce tangential themes.
-2. Generate Queries: Create exactly {query_count} unique search queries. Each query should include the main keywords and minor variations to preserve a narrow focus.
-3. Output Format: Return a strict JSON array of strings containing the queries.
+Инструкции:
+1. Анализ ввода пользователя: Определите точные концепции или ключевые слова в теме пользователя. НЕ вводите побочные темы.
+2. Генерация запросов: Создайте ровно {query_count} уникальных поисковых запросов. Каждый запрос должен включать основные ключевые слова и минимальные вариации для сохранения узкого фокуса.
+3. Формат вывода: Верните строгий JSON массив строк, содержащий запросы.
 
-User Topic: "{topic}"
+Тема пользователя: "{topic}"
 """
     return prompt
 
@@ -101,22 +101,22 @@ def build_structure_prompt(research_context: str, chapter_count: int) -> str:
     """
     logger.debug("[Schemas][build_structure_prompt] Belief: Формирование промпта Structure Planner | Input: research_context, chapter_count | Expected: str")
 
-    prompt = f"""Role: Research Leader and Project Planner
-Your task is to create a comprehensive, research-backed table of contents for a Lead Magnet based on the provided research context.
+    prompt = f"""Роль: Руководитель исследований и планировщик проекта
+Ваша задача - создать всестороннее, основанное на исследованиях оглавление для лид-магнита на основе предоставленного контекста исследований.
 
-Instructions:
-1. Read the research context carefully.
-2. Create a logical structure consisting of exactly {chapter_count} chapters.
-3. Generate a JSON object with the following schema:
-   - "title": Title of the Lead Magnet
-   - "subtitle": Subtitle
-   - "introduction": A short introduction (approx 100 words)
-   - "conclusions": A short conclusion (approx 100 words)
-   - "chapters": An array of objects, where each object has:
-     - "title": Chapter title
-     - "prompt": Exhaustive, step-by-step instructions for the writer on what to cover in this chapter based on the research. Include data points to mention.
+Инструкции:
+1. Внимательно прочитайте контекст исследований.
+2. Создайте логическую структуру, состоящую ровно из {chapter_count} глав.
+3. Сгенерируйте JSON объект со следующей схемой:
+   - "title": Заголовок лид-магнита
+   - "subtitle": Подзаголовок
+   - "introduction": Краткое введение (примерно 100 слов)
+   - "conclusions": Краткое заключение (примерно 100 слов)
+   - "chapters": Массив объектов, где каждый объект содержит:
+     - "title": Заголовок главы
+     - "prompt": Исчерпывающие, пошаговые инструкции для писателя о том, что нужно охватить в этой главе на основе исследований. Включите точки данных для упоминания.
 
-Research Context:
+Контекст исследований:
 {research_context}
 """
     return prompt
@@ -140,21 +140,21 @@ def build_chapter_writer_prompt(
     """
     logger.debug("[Schemas][build_chapter_writer_prompt] Belief: Формирование промпта Chapter Writer | Input: main_title, chapter_title, chapter_prompt, research_context, word_limit | Expected: str")
 
-    prompt = f"""Role: Research Assistant Writer
-Your task is to write a single chapter for a Lead Magnet.
+    prompt = f"""Роль: Помощник-писатель по исследованиям
+Ваша задача - написать одну главу для лид-магнита.
 
-Guidelines:
-- Write strictly in Markdown format.
-- Length: Approximately {word_limit} words.
-- Tone: Educational, informative, and actionable. Provide step-by-step guidance where applicable.
-- Do NOT include the main article introduction or conclusion. Just write the chapter content.
-- Use the provided research context to back up your claims. Include inline citations in Markdown format like [Source Name](URL) when referencing facts from the research.
+Руководящие принципы:
+- Пишите строго в формате Markdown.
+- Длина: Примерно {word_limit} слов.
+- Тон: Образовательный, информативный и практичный. Предоставляйте пошаговые руководства, где применимо.
+- НЕ включайте основное введение или заключение статьи. Пишите только содержание главы.
+- Используйте предоставленный контекст исследований для подтверждения ваших утверждений. Включайте встроенные цитаты в формате Markdown, такие как [Название источника](URL), при ссылке на факты из исследований.
 
-Lead Magnet Title: "{main_title}"
-Current Chapter Title: "{chapter_title}"
-Chapter Instructions: "{chapter_prompt}"
+Заголовок лид-магнита: "{main_title}"
+Текущий заголовок главы: "{chapter_title}"
+Инструкции для главы: "{chapter_prompt}"
 
-Research Context available to you:
+Доступный контекст исследований:
 {research_context}
 """
     return prompt
@@ -172,19 +172,19 @@ def build_final_editor_prompt(assembled_draft: str) -> str:
     """
     logger.debug("[Schemas][build_final_editor_prompt] Belief: Формирование промпта Final Editor | Input: assembled_draft | Expected: str")
 
-    prompt = f"""Role: Expert Editor
-You are refining and polishing content to ensure it meets the highest quality standards.
+    prompt = f"""Роль: Эксперт-редактор
+Вы уточняете и полируете контент, чтобы он соответствовал самым высоким стандартам качества.
 
-Instructions:
-- Carefully read the entire assembled Lead Magnet.
-- Check for grammar, spelling, and punctuation.
-- Ensure consistency in tone, style, and voice throughout the piece. Make it sound authentic, formal but casual (avoid robotic or "cringe" AI phrasing).
-- Improve sentence structure and flow.
-- Ensure proper Markdown formatting (Headers, Lists, Bold text).
-- Add placeholders like [Add image here of X] where visual context would be helpful.
-- Return the final polished text in pure Markdown.
+Инструкции:
+- Внимательно прочитайте весь собранный лид-магнит.
+- Проверьте грамматику, орфографию и пунктуацию.
+- Обеспечьте согласованность тона, стиля и голоса на протяжении всего текста. Сделайте его звучащим аутентично, формально, но непринужденно (избегайте роботизированных или "кринжовых" AI фраз).
+- Улучшите структуру предложений и плавность.
+- Обеспечьте правильное форматирование Markdown (Заголовки, Списки, Жирный текст).
+- Добавьте заполнители, такие как [Добавьте здесь изображение X], где визуальный контекст был бы полезен.
+- Верните финальный отполированный текст в чистом Markdown.
 
-Draft Content:
+Содержимое черновика:
 {assembled_draft}
 """
     return prompt

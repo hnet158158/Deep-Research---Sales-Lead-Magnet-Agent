@@ -105,16 +105,16 @@ class LlmClient:
         """
         logger.debug("[Clients][repair_json_once] Belief: Repair-pass для JSON | Input: broken_json | Expected: str")
 
-        repair_prompt = f"""Role: JSON Repair Specialist
-Your task is to fix the following broken JSON and return ONLY valid JSON.
+        repair_prompt = f"""Роль: Специалист по ремонту JSON
+Ваша задача - исправить следующий сломанный JSON и вернуть ТОЛЬКО валидный JSON.
 
-Instructions:
-1. Analyze the broken JSON structure.
-2. Fix syntax errors (missing quotes, trailing commas, etc.).
-3. Return ONLY the fixed JSON, no explanations or markdown fences.
-4. Do NOT change the data, only fix the syntax.
+Инструкции:
+1. Проанализируйте структуру сломанного JSON.
+2. Исправьте синтаксические ошибки (отсутствующие кавычки, висящие запятые и т.д.).
+3. Верните ТОЛЬКО исправленный JSON, без объяснений или markdown-ограничителей.
+4. НЕ изменяйте данные, только исправляйте синтаксис.
 
-Broken JSON:
+Сломанный JSON:
 {broken_json}
 """
 
@@ -123,7 +123,7 @@ Broken JSON:
                 model=self.model,
                 messages=[
                     {"role": "system", "content": repair_prompt},
-                    {"role": "user", "content": "Return the fixed JSON now."}
+                    {"role": "user", "content": "Верните исправленный JSON сейчас."}
                 ],
                 temperature=0.0,
                 response_format={"type": "json_object"}

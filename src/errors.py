@@ -26,12 +26,12 @@ class PipelineError(Exception):
 
 class PipelineStage(Enum):
     """Стадии pipeline."""
-    QUERY_BUILDER = "Query Builder"
-    SEARCH = "Search"
-    STRUCTURE_PLANNER = "Structure Planner"
-    CHAPTER_WRITER = "Chapter Writer"
-    FINAL_EDITOR = "Final Editor"
-    ASSEMBLY = "Assembly"
+    QUERY_BUILDER = "Генератор запросов"
+    SEARCH = "Поиск"
+    STRUCTURE_PLANNER = "Планировщик структуры"
+    CHAPTER_WRITER = "Писатель глав"
+    FINAL_EDITOR = "Финальный редактор"
+    ASSEMBLY = "Сборка"
 
 
 def emit_log(stage: str, message: str) -> str:
@@ -111,12 +111,12 @@ def format_ui_error(stage_error: StageError) -> str:
 
     if stage_error.recoverable:
         icon = "⚠️"
-        status = "Recoverable Error"
+        status = "Восстанавливаемая ошибка"
     else:
         icon = "❌"
-        status = "Critical Error"
+        status = "Критическая ошибка"
 
-    message = f"{icon} {status} at {stage_error.stage}\n{stage_error.message}"
+    message = f"{icon} {status} на стадии {stage_error.stage}\n{stage_error.message}"
 
     logger.debug("[Errors][format_ui_error] Belief: Ошибка отформатирована | Input: stage_error | Expected: str")
     return message
@@ -126,20 +126,40 @@ def stream_logs(
     generator: Generator[Tuple[str, Optional[str], Optional[str]], None, None]
 ) -> Generator[Tuple[str, Optional[str], Optional[str]], None, None]:
     """
-    Обертка для стриминга логов с обработкой ошибок.
+    Обертка для стриминга логов с накоплением и обработкой ошибок.
 
     # START_CONTRACT_stream_logs
     # Input: generator (Generator)
-    # Russian Intent: Обернуть генератор для безопасного стриминга логов
+    # Russian Intent: Обернуть генератор для безопасного накопительного стриминга логов
     # Output: Generator
     # END_CONTRACT_stream_logs
     """
-    logger.debug("[Errors][stream_logs] Belief: Начало стриминга логов | Input: generator | Expected: Generator")
+    logger.debug("[Errors][stream_logs] Belief: Начало накопительного стриминга логов | Input: generator | Expected: Generator")
+
+    accumulated_logs = ""
+    accumulated_markdown = None
+    accumulated_filepath = None
 
     try:
-        for item in generator:
-            yield item
+        for logs, markdown, filepath in generator:
+            # Накапливаем логи
+            if logs:
+                if accumulated_logs:
+                    accumulated_logs += "\n" + logs
+                else:
+                    accumulated_logs = logs
+
+            # Обновляем markdown и filepath (они не накапливаются)
+            if markdown is not None:
+                accumulated_markdown = markdown
+            if filepath is not None:
+                accumulated_filepath = filepath
+
+            # Yield накопленное состояние
+            yield (accumulated_logs, accumulated_markdown, accumulated_filepath)
     except Exception as e:
         logger.error(f"[Errors][stream_logs] Error during streaming: {e}")
         error_msg = f"❌ Unexpected error: {type(e).__name__}"
+        if accumulated_logs:
+            error_msg = accumulated_logs + "\n" + error_msg
         yield (error_msg, None, None)

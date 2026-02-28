@@ -231,11 +231,11 @@ def test_emit_and_format_error_and_redaction():
     assert "[REDACTED]" in e.message
 
     ui = format_ui_error(e)
-    assert "⚠️ Recoverable Error" in ui
+    assert "⚠️ Восстанавливаемая ошибка" in ui
 
     e2 = handle_stage_failure("StageX", RuntimeError("boom"), recoverable=False)
     ui2 = format_ui_error(e2)
-    assert "❌ Critical Error" in ui2
+    assert "❌ Критическая ошибка" in ui2
 
 
 def test_stream_logs_success_and_exception_path():
@@ -243,7 +243,7 @@ def test_stream_logs_success_and_exception_path():
         yield ("a", None, None)
         yield ("b", "md", "file")
 
-    assert list(stream_logs(gen_ok())) == [("a", None, None), ("b", "md", "file")]
+    assert list(stream_logs(gen_ok())) == [("a", None, None), ("a\nb", "md", "file")]
 
     def gen_fail():
         yield ("start", None, None)
@@ -251,7 +251,8 @@ def test_stream_logs_success_and_exception_path():
 
     out = list(stream_logs(gen_fail()))
     assert out[0] == ("start", None, None)
-    assert out[-1][0].startswith("❌ Unexpected error")
+    assert "start" in out[-1][0]
+    assert "❌ Unexpected error" in out[-1][0]
 
 
 def test_safe_log_error_redacts_keywords():
