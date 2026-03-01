@@ -127,18 +127,25 @@ def build_chapter_writer_prompt(
     chapter_title: str,
     chapter_prompt: str,
     research_context: str,
-    word_limit: int
+    word_limit: int,
+    keep_links: bool = True
 ) -> str:
     """
     Формирует промпт для написания главы.
 
     # START_CONTRACT_build_chapter_writer_prompt
-    # Input: main_title, chapter_title, chapter_prompt, research_context, word_limit
+    # Input: main_title, chapter_title, chapter_prompt, research_context, word_limit, keep_links
     # Russian Intent: Сформировать промпт для написания отдельной главы
     # Output: str - промпт для LLM
     # END_CONTRACT_build_chapter_writer_prompt
     """
-    logger.debug("[Schemas][build_chapter_writer_prompt] Belief: Формирование промпта Chapter Writer | Input: main_title, chapter_title, chapter_prompt, research_context, word_limit | Expected: str")
+    logger.debug("[Schemas][build_chapter_writer_prompt] Belief: Формирование промпта Chapter Writer | Input: main_title, chapter_title, chapter_prompt, research_context, word_limit, keep_links | Expected: str")
+
+    link_rule = (
+        "- Добавляйте встроенные цитаты в формате Markdown, такие как [Название источника](URL), при ссылке на факты из исследований."
+        if keep_links
+        else "- НЕ добавляйте URL и Markdown-ссылки; передавайте факты без ссылок, в чистом тексте."
+    )
 
     prompt = f"""Роль: Помощник-писатель по исследованиям
 Ваша задача - написать одну главу для лид-магнита.
@@ -148,7 +155,8 @@ def build_chapter_writer_prompt(
 - Длина: Примерно {word_limit} слов.
 - Тон: Образовательный, информативный и практичный. Предоставляйте пошаговые руководства, где применимо.
 - НЕ включайте основное введение или заключение статьи. Пишите только содержание главы.
-- Используйте предоставленный контекст исследований для подтверждения ваших утверждений. Включайте встроенные цитаты в формате Markdown, такие как [Название источника](URL), при ссылке на факты из исследований.
+- Используйте предоставленный контекст исследований для подтверждения ваших утверждений.
+- {link_rule}
 
 Заголовок лид-магнита: "{main_title}"
 Текущий заголовок главы: "{chapter_title}"
@@ -160,17 +168,23 @@ def build_chapter_writer_prompt(
     return prompt
 
 
-def build_final_editor_prompt(assembled_draft: str) -> str:
+def build_final_editor_prompt(assembled_draft: str, keep_links: bool = True) -> str:
     """
     Формирует промпт для финального редактирования.
 
     # START_CONTRACT_build_final_editor_prompt
-    # Input: assembled_draft (str)
+    # Input: assembled_draft (str), keep_links (bool)
     # Russian Intent: Сформировать промпт для финальной полировки текста
     # Output: str - промпт для LLM
     # END_CONTRACT_build_final_editor_prompt
     """
-    logger.debug("[Schemas][build_final_editor_prompt] Belief: Формирование промпта Final Editor | Input: assembled_draft | Expected: str")
+    logger.debug("[Schemas][build_final_editor_prompt] Belief: Формирование промпта Final Editor | Input: assembled_draft, keep_links | Expected: str")
+
+    link_rule = (
+        "- Сохраните все существующие Markdown-ссылки в тексте (URL и анкоры)."
+        if keep_links
+        else "- Удалите все Markdown-ссылки, сохранив только читаемый текст без URL."
+    )
 
     prompt = f"""Роль: Легкий финальный редактор Markdown
 Вы выполняете ТОЛЬКО мягкую полировку, без переписывания содержания и без изменения объема секций.
@@ -182,6 +196,7 @@ def build_final_editor_prompt(assembled_draft: str) -> str:
 - НЕ удаляйте факты, ссылки и числовые значения.
 - НЕ объединяйте и НЕ дробите разделы.
 - Сохраните Markdown-форматирование; разрешены только точечные правки.
+- {link_rule}
 - Верните финальный текст в чистом Markdown.
 
 Содержимое черновика:
@@ -194,18 +209,25 @@ def build_section_editor_prompt(
     section_name: str,
     section_markdown: str,
     min_words: int,
-    max_words: int
+    max_words: int,
+    keep_links: bool = True
 ) -> str:
     """
     Формирует промпт покомпонентного редактирования секции с контролем длины.
 
     # START_CONTRACT_build_section_editor_prompt
-    # Input: section_name (str), section_markdown (str), min_words (int), max_words (int)
+    # Input: section_name (str), section_markdown (str), min_words (int), max_words (int), keep_links (bool)
     # Russian Intent: Отредактировать одну секцию и удержать длину в заданном диапазоне
     # Output: str - промпт для LLM
     # END_CONTRACT_build_section_editor_prompt
     """
-    logger.debug("[Schemas][build_section_editor_prompt] Belief: Формирование промпта секционного редактора | Input: section_name, section_markdown, min_words, max_words | Expected: str")
+    logger.debug("[Schemas][build_section_editor_prompt] Belief: Формирование промпта секционного редактора | Input: section_name, section_markdown, min_words, max_words, keep_links | Expected: str")
+
+    link_rule = (
+        "- Сохраните и не изменяйте существующие Markdown-ссылки и URL."
+        if keep_links
+        else "- Удалите все URL и Markdown-ссылки, сохранив только читаемый текст без ссылок."
+    )
 
     prompt = f"""Роль: Редактор отдельной секции лид-магнита
 Ваша задача — улучшить только одну секцию, сохранив ее смысл, структуру и размер.
@@ -216,6 +238,7 @@ def build_section_editor_prompt(
 - НЕ удаляйте факты, цифры, ссылки и ключевые тезисы.
 - НЕ добавляйте новые разделы и не переносите контент из других секций.
 - Длина итогового текста должна быть в диапазоне [{min_words}, {max_words}] слов.
+- {link_rule}
 
 Что можно менять:
 - Орфография, пунктуация, грамматика.

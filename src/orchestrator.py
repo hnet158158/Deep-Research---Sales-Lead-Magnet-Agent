@@ -141,16 +141,34 @@ class GenerationOrchestrator:
         """
         logger.debug("[Orchestrator][_edit_section_with_length_guard] Belief: Секционное редактирование | Input: section_name, section_markdown | Expected: str")
         min_words, max_words = self._build_word_range(section_markdown)
-        prompt = build_section_editor_prompt(section_name, section_markdown, min_words, max_words)
-        edited = self.llm_client.generate_markdown(prompt, temperature=0.2)
+        prompt = build_section_editor_prompt(
+            section_name,
+            section_markdown,
+            min_words,
+            max_words,
+            keep_links=self.ui_settings.keep_links
+        )
+        edited = self.llm_client.generate_markdown(
+            prompt,
+            temperature=self.ui_settings.editor_temperature
+        )
         edited_count = self._count_words(edited)
         if min_words <= edited_count <= max_words:
             logger.debug("[Orchestrator][_edit_section_with_length_guard] Belief: Секция прошла контроль длины | Input: section_name, min_words, max_words | Expected: str")
             return edited
 
         logger.debug("[Orchestrator][_edit_section_with_length_guard] Belief: Повторная попытка редактирования секции | Input: section_name, min_words, max_words | Expected: str")
-        retry_prompt = build_section_editor_prompt(section_name, section_markdown, min_words, max_words)
-        retried = self.llm_client.generate_markdown(retry_prompt, temperature=0.1)
+        retry_prompt = build_section_editor_prompt(
+            section_name,
+            section_markdown,
+            min_words,
+            max_words,
+            keep_links=self.ui_settings.keep_links
+        )
+        retried = self.llm_client.generate_markdown(
+            retry_prompt,
+            temperature=self.ui_settings.editor_temperature
+        )
         retried_count = self._count_words(retried)
         if min_words <= retried_count <= max_words:
             logger.debug("[Orchestrator][_edit_section_with_length_guard] Belief: Повторная попытка успешна | Input: section_name, min_words, max_words | Expected: str")
@@ -235,7 +253,8 @@ class GenerationOrchestrator:
                     chapter_title=chapter_plan.title,
                     chapter_prompt=chapter_plan.prompt,
                     research_context=research_context,
-                    word_limit=self.ui_settings.words_per_chapter
+                    word_limit=self.ui_settings.words_per_chapter,
+                    keep_links=self.ui_settings.keep_links
                 )
                 chapter_text = self.llm_client.generate_markdown(prompt, temperature=self.ui_settings.temperature)
                 chapters.append(chapter_text)
@@ -286,8 +305,14 @@ class GenerationOrchestrator:
             else:
                 draft_content = draft  # Если файл не существует, используем как есть
 
-            editor_prompt = build_final_editor_prompt(draft_content)
-            final_markdown = self.llm_client.generate_markdown(editor_prompt, temperature=0.1)
+            editor_prompt = build_final_editor_prompt(
+                draft_content,
+                keep_links=self.ui_settings.keep_links
+            )
+            final_markdown = self.llm_client.generate_markdown(
+                editor_prompt,
+                temperature=self.ui_settings.editor_temperature
+            )
 
             # Save final version
             from src.export import save_markdown_file, ensure_outputs_dir, build_output_filename

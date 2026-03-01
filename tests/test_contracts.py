@@ -55,6 +55,25 @@ def test_validate_ui_settings_true_false_cases():
     assert validate_ui_settings(UiSettings(100, 1, 0.0)) is True
 
 
+def test_ui_settings_keep_links_default_and_roundtrip(tmp_path):
+    assert UiSettings().keep_links is True
+
+    cfg = tmp_path / "config_keep_links.json"
+    save_ui_settings(UiSettings(300, 5, 0.7, keep_links=False), str(cfg))
+    loaded = load_ui_settings(str(cfg))
+    assert loaded.keep_links is False
+
+
+def test_ui_settings_editor_temperature_default_and_clamp():
+    assert UiSettings().editor_temperature == 0.2
+
+    low = UiSettings(editor_temperature=-1.0)
+    high = UiSettings(editor_temperature=9.0)
+
+    assert low.editor_temperature == 0.0
+    assert high.editor_temperature == 1.0
+
+
 def test_load_env_config_success(monkeypatch):
     monkeypatch.setenv("LLM_API_KEY", "k1")
     monkeypatch.setenv("LLM_BASE_URL", "https://x")

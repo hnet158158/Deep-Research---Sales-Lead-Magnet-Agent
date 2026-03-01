@@ -65,6 +65,17 @@ def build_ui() -> gr.Blocks:
                         step=0.1,
                         label="Креативность (Temperature)"
                     )
+                    editor_temp_slider = gr.Slider(
+                        minimum=0.0,
+                        maximum=1.0,
+                        value=0.2,
+                        step=0.1,
+                        label="Креативность редакторов"
+                    )
+                    keep_links_checkbox = gr.Checkbox(
+                        value=True,
+                        label="Сохранять ссылки"
+                    )
 
                 logs_output = gr.Textbox(
                     label="Логи выполнения",
@@ -79,7 +90,14 @@ def build_ui() -> gr.Blocks:
 
         generate_btn.click(
             fn=on_generate_click,
-            inputs=[topic_input, words_slider, chapters_slider, temp_slider],
+            inputs=[
+                topic_input,
+                words_slider,
+                chapters_slider,
+                temp_slider,
+                editor_temp_slider,
+                keep_links_checkbox
+            ],
             outputs=[logs_output, markdown_output]
         )
 
@@ -91,13 +109,15 @@ def on_generate_click(
     topic: str,
     words_per_chapter: int,
     chapter_count: int,
-    temperature: float
+    temperature: float,
+    editor_temperature: float,
+    keep_links: bool
 ) -> Generator[Tuple[str, Optional[str]], None, None]:
     """
     Обработчик клика на кнопку генерации.
 
     # START_CONTRACT_on_generate_click
-    # Input: topic, words_per_chapter, chapter_count, temperature
+    # Input: topic, words_per_chapter, chapter_count, temperature, editor_temperature, keep_links
     # Russian Intent: Запустить генерацию и стримить прогресс в UI
     # Output: Generator - стрим обновлений (logs, markdown)
     # END_CONTRACT_on_generate_click
@@ -113,7 +133,9 @@ def on_generate_click(
         ui_settings = UiSettings(
             words_per_chapter=words_per_chapter,
             chapter_count=chapter_count,
-            temperature=temperature
+            temperature=temperature,
+            editor_temperature=editor_temperature,
+            keep_links=keep_links
         )
 
         if not validate_ui_settings(ui_settings):

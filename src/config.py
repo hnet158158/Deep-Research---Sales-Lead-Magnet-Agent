@@ -28,9 +28,11 @@ class UiSettings:
     words_per_chapter: int = 300
     chapter_count: int = 5
     temperature: float = 0.7
+    editor_temperature: float = 0.2
+    keep_links: bool = True
 
     # START_CONTRACT_UiSettings
-    # Input: words_per_chapter (int), chapter_count (int), temperature (float)
+    # Input: words_per_chapter (int), chapter_count (int), temperature (float), editor_temperature (float), keep_links (bool)
     # Russian Intent: Хранить настройки UI с валидацией диапазонов
     # Output: Валидный объект UiSettings
     # END_CONTRACT_UiSettings
@@ -40,6 +42,8 @@ class UiSettings:
         self.words_per_chapter = max(100, min(1000, self.words_per_chapter))
         self.chapter_count = max(1, min(10, self.chapter_count))
         self.temperature = max(0.0, min(1.0, self.temperature))
+        self.editor_temperature = max(0.0, min(1.0, self.editor_temperature))
+        self.keep_links = bool(self.keep_links)
 
 
 def load_env_config() -> AppConfig:
@@ -157,7 +161,9 @@ def validate_ui_settings(settings: UiSettings) -> bool:
     is_valid = (
         100 <= settings.words_per_chapter <= 1000 and
         1 <= settings.chapter_count <= 10 and
-        0.0 <= settings.temperature <= 1.0
+        0.0 <= settings.temperature <= 1.0 and
+        0.0 <= settings.editor_temperature <= 1.0 and
+        isinstance(settings.keep_links, bool)
     )
 
     logger.debug(f"[Config][validate_ui_settings] Belief: Валидация завершена | Input: settings | Expected: bool, Result: {is_valid}")
