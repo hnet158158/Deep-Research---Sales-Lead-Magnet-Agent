@@ -14,7 +14,8 @@ from src.schemas import (
     build_structure_prompt,
     parse_structure_output,
     build_chapter_writer_prompt,
-    build_final_editor_prompt
+    build_final_editor_prompt,
+    build_section_editor_prompt
 )
 from src.research import (
     run_sequential_search,
@@ -97,6 +98,66 @@ class GenerationOrchestrator:
         except Exception as e:
             logger.error(f"[Orchestrator][run_pipeline] Unexpected error: {e}")
             raise handle_stage_failure("Pipeline", e, recoverable=False)
+
+    def _count_words(self, text: str) -> int:
+        """
+        Возвращает количество слов в тексте.
+
+        # START_CONTRACT__count_words
+        # Input: text (str)
+        # Russian Intent: Подсчитать слова для контроля длины секции
+        # Output: int
+        # END_CONTRACT__count_words
+        """
+        logger.debug("[Orchestrator][_count_words] Belief: Подсчет слов | Input: text | Expected: int")
+        words = [token for token in text.replace("\n", " ").split(" ") if token.strip()]
+        return len(words)
+
+    def _build_word_range(self, source_text: str, tolerance: float = 0.15) -> Tuple[int, int]:
+        """
+        Строит допустимый диапазон длины для секции.
+
+        # START_CONTRACT__build_word_range
+        # Input: source_text (str), tolerance (float)
+        # Russian Intent: Вычислить нижнюю и верхнюю границы длины секции
+        # Output: Tuple[int, int]
+        # END_CONTRACT__build_word_range
+        """
+        logger.debug("[Orchestrator][_build_word_range] Belief: Расчет диапазона длины | Input: source_text, tolerance | Expected: Tuple[int, int]")
+        base_count = max(1, self._count_words(source_text))
+        min_words = max(1, int(base_count * (1 - tolerance)))
+        max_words = max(min_words, int(base_count * (1 + tolerance)))
+        return min_words, max_words
+
+    def _edit_section_with_length_guard(self, section_name: str, section_markdown: str) -> str:
+        """
+        Редактирует одну секцию с проверкой диапазона длины.
+
+        # START_CONTRACT__edit_section_with_length_guard
+        # Input: section_name (str), section_markdown (str)
+        # Russian Intent: Отредактировать секцию, сохранив близкий объем текста
+        # Output: str
+        # END_CONTRACT__edit_section_with_length_guard
+        """
+        logger.debug("[Orchestrator][_edit_section_with_length_guard] Belief: Секционное редактирование | Input: section_name, section_markdown | Expected: str")
+        min_words, max_words = self._build_word_range(section_markdown)
+        prompt = build_section_editor_prompt(section_name, section_markdown, min_words, max_words)
+        edited = self.llm_client.generate_markdown(prompt, temperature=0.2)
+        edited_count = self._count_words(edited)
+        if min_words <= edited_count <= max_words:
+            logger.debug("[Orchestrator][_edit_section_with_length_guard] Belief: Секция прошла контроль длины | Input: section_name, min_words, max_words | Expected: str")
+            return edited
+
+        logger.debug("[Orchestrator][_edit_section_with_length_guard] Belief: Повторная попытка редактирования секции | Input: section_name, min_words, max_words | Expected: str")
+        retry_prompt = build_section_editor_prompt(section_name, section_markdown, min_words, max_words)
+        retried = self.llm_client.generate_markdown(retry_prompt, temperature=0.1)
+        retried_count = self._count_words(retried)
+        if min_words <= retried_count <= max_words:
+            logger.debug("[Orchestrator][_edit_section_with_length_guard] Belief: Повторная попытка успешна | Input: section_name, min_words, max_words | Expected: str")
+            return retried
+
+        logger.debug("[Orchestrator][_edit_section_with_length_guard] Belief: Возврат исходной секции после двух неуспешных попыток | Input: section_name, min_words, max_words | Expected: str")
+        return section_markdown
 
     def _run_query_builder(self, topic: str) -> Generator[Tuple[str, Optional[str], Optional[str]], None, None]:
         """Stage 1: Query Builder."""
@@ -193,16 +254,28 @@ class GenerationOrchestrator:
         yield (emit_log(stage, "Сборка документа..."), None, None)
 
         try:
+            yield (emit_log(stage, "Редактирование введения с контролем длины..."), None, None)
+            edited_intro = self._edit_section_with_length_guard("Introduction", structure.introduction)
+
+            edited_chapters = []
+            for i, chapter_text in enumerate(chapters, 1):
+                yield (emit_log(stage, f"Редактирование главы {i}/{len(chapters)} с контролем длины..."), None, None)
+                edited_chapter = self._edit_section_with_length_guard(f"Chapter {i}", chapter_text)
+                edited_chapters.append(edited_chapter)
+
+            yield (emit_log(stage, "Редактирование заключения с контролем длины..."), None, None)
+            edited_conclusions = self._edit_section_with_length_guard("Conclusion", structure.conclusions)
+
             # Assembly
             draft = export_lead_magnet(
                 title=structure.title,
                 subtitle=structure.subtitle,
-                introduction=structure.introduction,
-                chapters=chapters,
-                conclusions=structure.conclusions
+                introduction=edited_intro,
+                chapters=edited_chapters,
+                conclusions=edited_conclusions
             )
 
-            yield (emit_log(stage, "Запуск финального редактора..."), None, None)
+            yield (emit_log(stage, "Запуск легкого финального редактора..."), None, None)
 
             # Final Editor - читаем содержимое файла вместо пути
             from pathlib import Path
@@ -214,7 +287,7 @@ class GenerationOrchestrator:
                 draft_content = draft  # Если файл не существует, используем как есть
 
             editor_prompt = build_final_editor_prompt(draft_content)
-            final_markdown = self.llm_client.generate_markdown(editor_prompt, temperature=0.3)
+            final_markdown = self.llm_client.generate_markdown(editor_prompt, temperature=0.1)
 
             # Save final version
             from src.export import save_markdown_file, ensure_outputs_dir, build_output_filename

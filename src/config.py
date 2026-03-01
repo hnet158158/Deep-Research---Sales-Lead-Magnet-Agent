@@ -19,6 +19,7 @@ class AppConfig:
     llm_base_url: str
     llm_model: str
     tavily_api_key: str
+    llm_max_output_tokens: int = 12000
 
 
 @dataclass
@@ -57,6 +58,7 @@ def load_env_config() -> AppConfig:
     llm_base_url = os.getenv("LLM_BASE_URL")
     llm_model = os.getenv("LLM_MODEL")
     tavily_api_key = os.getenv("TAVILY_API_KEY")
+    llm_max_output_tokens_raw = os.getenv("LLM_MAX_OUTPUT_TOKENS", "12000")
 
     missing = []
     if not llm_api_key:
@@ -71,11 +73,20 @@ def load_env_config() -> AppConfig:
     if missing:
         raise ValueError(f"Missing required ENV variables: {', '.join(missing)}")
 
+    try:
+        llm_max_output_tokens = int(llm_max_output_tokens_raw)
+    except ValueError as e:
+        raise ValueError("LLM_MAX_OUTPUT_TOKENS must be an integer") from e
+
+    if llm_max_output_tokens < 500:
+        raise ValueError("LLM_MAX_OUTPUT_TOKENS must be >= 500")
+
     config = AppConfig(
         llm_api_key=llm_api_key,
         llm_base_url=llm_base_url,
         llm_model=llm_model,
-        tavily_api_key=tavily_api_key
+        tavily_api_key=tavily_api_key,
+        llm_max_output_tokens=llm_max_output_tokens
     )
 
     logger.debug("[Config][load_env_config] Belief: ENV-конфигурация загружена успешно | Input: None | Expected: Валидный AppConfig")
