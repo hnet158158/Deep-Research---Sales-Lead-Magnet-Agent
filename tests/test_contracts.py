@@ -64,6 +64,15 @@ def test_ui_settings_keep_links_default_and_roundtrip(tmp_path):
     assert loaded.keep_links is False
 
 
+def test_ui_settings_enable_section_editors_default_and_roundtrip(tmp_path):
+    assert UiSettings().enable_section_editors is True
+
+    cfg = tmp_path / "config_section_editors.json"
+    save_ui_settings(UiSettings(enable_section_editors=False), str(cfg))
+    loaded = load_ui_settings(str(cfg))
+    assert loaded.enable_section_editors is False
+
+
 def test_ui_settings_editor_temperature_default_and_clamp():
     assert UiSettings().editor_temperature == 0.2
 
@@ -79,10 +88,12 @@ def test_load_env_config_success(monkeypatch):
     monkeypatch.setenv("LLM_BASE_URL", "https://x")
     monkeypatch.setenv("LLM_MODEL", "m")
     monkeypatch.setenv("TAVILY_API_KEY", "k2")
+    monkeypatch.setenv("LLM_REASONING_BUDGET", "256")
 
     cfg = load_env_config()
     assert isinstance(cfg, AppConfig)
     assert cfg.llm_api_key == "k1"
+    assert cfg.llm_reasoning_budget == 256
 
 
 def test_load_env_config_missing_vars(monkeypatch):
@@ -94,6 +105,19 @@ def test_load_env_config_missing_vars(monkeypatch):
     with pytest.raises(ValueError) as e:
         load_env_config()
     assert "Missing required ENV variables" in str(e.value)
+
+
+def test_load_env_config_invalid_reasoning_budget(monkeypatch):
+    monkeypatch.setenv("LLM_API_KEY", "k1")
+    monkeypatch.setenv("LLM_BASE_URL", "https://x")
+    monkeypatch.setenv("LLM_MODEL", "m")
+    monkeypatch.setenv("TAVILY_API_KEY", "k2")
+    monkeypatch.setenv("LLM_REASONING_BUDGET", "-1")
+
+    with pytest.raises(ValueError) as e:
+        load_env_config()
+
+    assert "LLM_REASONING_BUDGET must be >= 0" in str(e.value)
 
 
 def test_load_and_save_ui_settings_roundtrip(tmp_path):

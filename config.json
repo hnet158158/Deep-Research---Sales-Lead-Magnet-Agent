@@ -1,5 +1,8 @@
 {
-  "words_per_chapter": 350,
+  "words_per_chapter": 300,
   "chapter_count": 5,
-  "temperature": 0.7
+  "temperature": 0.7,
+  "editor_temperature": 0.2,
+  "keep_links": false,
+  "enable_section_editors": false
 }

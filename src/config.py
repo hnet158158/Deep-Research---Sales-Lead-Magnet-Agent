@@ -20,6 +20,7 @@ class AppConfig:
     llm_model: str
     tavily_api_key: str
     llm_max_output_tokens: int = 12000
+    llm_reasoning_budget: int = 256
 
 
 @dataclass
@@ -30,9 +31,10 @@ class UiSettings:
     temperature: float = 0.7
     editor_temperature: float = 0.2
     keep_links: bool = True
+    enable_section_editors: bool = True
 
     # START_CONTRACT_UiSettings
-    # Input: words_per_chapter (int), chapter_count (int), temperature (float), editor_temperature (float), keep_links (bool)
+    # Input: words_per_chapter (int), chapter_count (int), temperature (float), editor_temperature (float), keep_links (bool), enable_section_editors (bool)
     # Russian Intent: Хранить настройки UI с валидацией диапазонов
     # Output: Валидный объект UiSettings
     # END_CONTRACT_UiSettings
@@ -44,6 +46,7 @@ class UiSettings:
         self.temperature = max(0.0, min(1.0, self.temperature))
         self.editor_temperature = max(0.0, min(1.0, self.editor_temperature))
         self.keep_links = bool(self.keep_links)
+        self.enable_section_editors = bool(self.enable_section_editors)
 
 
 def load_env_config() -> AppConfig:
@@ -63,6 +66,7 @@ def load_env_config() -> AppConfig:
     llm_model = os.getenv("LLM_MODEL")
     tavily_api_key = os.getenv("TAVILY_API_KEY")
     llm_max_output_tokens_raw = os.getenv("LLM_MAX_OUTPUT_TOKENS", "12000")
+    llm_reasoning_budget_raw = os.getenv("LLM_REASONING_BUDGET", "256")
 
     missing = []
     if not llm_api_key:
@@ -85,12 +89,21 @@ def load_env_config() -> AppConfig:
     if llm_max_output_tokens < 500:
         raise ValueError("LLM_MAX_OUTPUT_TOKENS must be >= 500")
 
+    try:
+        llm_reasoning_budget = int(llm_reasoning_budget_raw)
+    except ValueError as e:
+        raise ValueError("LLM_REASONING_BUDGET must be an integer") from e
+
+    if llm_reasoning_budget < 0:
+        raise ValueError("LLM_REASONING_BUDGET must be >= 0")
+
     config = AppConfig(
         llm_api_key=llm_api_key,
         llm_base_url=llm_base_url,
         llm_model=llm_model,
         tavily_api_key=tavily_api_key,
-        llm_max_output_tokens=llm_max_output_tokens
+        llm_max_output_tokens=llm_max_output_tokens,
+        llm_reasoning_budget=llm_reasoning_budget
     )
 
     logger.debug("[Config][load_env_config] Belief: ENV-конфигурация загружена успешно | Input: None | Expected: Валидный AppConfig")
@@ -163,7 +176,8 @@ def validate_ui_settings(settings: UiSettings) -> bool:
         1 <= settings.chapter_count <= 10 and
         0.0 <= settings.temperature <= 1.0 and
         0.0 <= settings.editor_temperature <= 1.0 and
-        isinstance(settings.keep_links, bool)
+        isinstance(settings.keep_links, bool) and
+        isinstance(settings.enable_section_editors, bool)
     )
 
     logger.debug(f"[Config][validate_ui_settings] Belief: Валидация завершена | Input: settings | Expected: bool, Result: {is_valid}")

@@ -76,6 +76,10 @@ def build_ui() -> gr.Blocks:
                         value=True,
                         label="Сохранять ссылки"
                     )
+                    section_editors_checkbox = gr.Checkbox(
+                        value=True,
+                        label="Промежуточные редакторы глав"
+                    )
 
                 logs_output = gr.Textbox(
                     label="Логи выполнения",
@@ -96,7 +100,8 @@ def build_ui() -> gr.Blocks:
                 chapters_slider,
                 temp_slider,
                 editor_temp_slider,
-                keep_links_checkbox
+                keep_links_checkbox,
+                section_editors_checkbox
             ],
             outputs=[logs_output, markdown_output]
         )
@@ -111,13 +116,14 @@ def on_generate_click(
     chapter_count: int,
     temperature: float,
     editor_temperature: float,
-    keep_links: bool
+    keep_links: bool,
+    enable_section_editors: bool
 ) -> Generator[Tuple[str, Optional[str]], None, None]:
     """
     Обработчик клика на кнопку генерации.
 
     # START_CONTRACT_on_generate_click
-    # Input: topic, words_per_chapter, chapter_count, temperature, editor_temperature, keep_links
+    # Input: topic, words_per_chapter, chapter_count, temperature, editor_temperature, keep_links, enable_section_editors
     # Russian Intent: Запустить генерацию и стримить прогресс в UI
     # Output: Generator - стрим обновлений (logs, markdown)
     # END_CONTRACT_on_generate_click
@@ -135,7 +141,8 @@ def on_generate_click(
             chapter_count=chapter_count,
             temperature=temperature,
             editor_temperature=editor_temperature,
-            keep_links=keep_links
+            keep_links=keep_links,
+            enable_section_editors=enable_section_editors
         )
 
         if not validate_ui_settings(ui_settings):

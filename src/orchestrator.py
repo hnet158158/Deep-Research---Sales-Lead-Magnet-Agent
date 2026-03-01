@@ -273,17 +273,23 @@ class GenerationOrchestrator:
         yield (emit_log(stage, "Сборка документа..."), None, None)
 
         try:
-            yield (emit_log(stage, "Редактирование введения с контролем длины..."), None, None)
-            edited_intro = self._edit_section_with_length_guard("Introduction", structure.introduction)
+            if self.ui_settings.enable_section_editors:
+                yield (emit_log(stage, "Редактирование введения с контролем длины..."), None, None)
+                edited_intro = self._edit_section_with_length_guard("Introduction", structure.introduction)
 
-            edited_chapters = []
-            for i, chapter_text in enumerate(chapters, 1):
-                yield (emit_log(stage, f"Редактирование главы {i}/{len(chapters)} с контролем длины..."), None, None)
-                edited_chapter = self._edit_section_with_length_guard(f"Chapter {i}", chapter_text)
-                edited_chapters.append(edited_chapter)
+                edited_chapters = []
+                for i, chapter_text in enumerate(chapters, 1):
+                    yield (emit_log(stage, f"Редактирование главы {i}/{len(chapters)} с контролем длины..."), None, None)
+                    edited_chapter = self._edit_section_with_length_guard(f"Chapter {i}", chapter_text)
+                    edited_chapters.append(edited_chapter)
 
-            yield (emit_log(stage, "Редактирование заключения с контролем длины..."), None, None)
-            edited_conclusions = self._edit_section_with_length_guard("Conclusion", structure.conclusions)
+                yield (emit_log(stage, "Редактирование заключения с контролем длины..."), None, None)
+                edited_conclusions = self._edit_section_with_length_guard("Conclusion", structure.conclusions)
+            else:
+                yield (emit_log(stage, "Промежуточные редакторы отключены: используем исходные секции"), None, None)
+                edited_intro = structure.introduction
+                edited_chapters = chapters
+                edited_conclusions = structure.conclusions
 
             # Assembly
             draft = export_lead_magnet(

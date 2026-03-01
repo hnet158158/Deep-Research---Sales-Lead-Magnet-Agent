@@ -33,8 +33,32 @@ class LlmClient:
             base_url=config.llm_base_url
         )
         self.model = config.llm_model
+        self.reasoning_budget = config.llm_reasoning_budget
 
         logger.debug("[Clients][LlmClient_init] Belief: LLM клиент инициализирован | Input: config | Expected: Клиент готов")
+
+    def _build_reasoning_kwargs(self) -> dict:
+        """
+        Возвращает provider-specific аргументы для контроля бюджета размышлений.
+
+        # START_CONTRACT__build_reasoning_kwargs
+        # Input: None
+        # Russian Intent: Сформировать kwargs для моделей, поддерживающих бюджет размышлений
+        # Output: dict
+        # END_CONTRACT__build_reasoning_kwargs
+        """
+        logger.debug("[Clients][_build_reasoning_kwargs] Belief: Формирование reasoning kwargs | Input: model, reasoning_budget | Expected: dict")
+
+        if self.reasoning_budget <= 0:
+            return {}
+
+        is_gemini_model = "gemini" in self.model.lower()
+        if not is_gemini_model:
+            return {}
+
+        kwargs = {"extra_body": {"thinking_budget": self.reasoning_budget}}
+        logger.debug("[Clients][_build_reasoning_kwargs] Belief: Thinking budget передан через extra_body только для Gemini | Input: model, reasoning_budget | Expected: dict")
+        return kwargs
 
     def generate_json(self, system_prompt: str, temperature: float = 0.7) -> str:
         """
@@ -49,6 +73,7 @@ class LlmClient:
         logger.debug("[Clients][generate_json] Belief: Генерация JSON от LLM | Input: system_prompt, temperature | Expected: str")
 
         try:
+            reasoning_kwargs = self._build_reasoning_kwargs()
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
@@ -56,7 +81,8 @@ class LlmClient:
                     {"role": "user", "content": "Generate the JSON response now."}
                 ],
                 temperature=temperature,
-                response_format={"type": "json_object"}
+                response_format={"type": "json_object"},
+                **reasoning_kwargs
             )
             result = response.choices[0].message.content
             logger.debug("[Clients][generate_json] Belief: JSON получен успешно | Input: system_prompt, temperature | Expected: str")
@@ -78,13 +104,15 @@ class LlmClient:
         logger.debug("[Clients][generate_markdown] Belief: Генерация Markdown от LLM | Input: system_prompt, temperature | Expected: str")
 
         try:
+            reasoning_kwargs = self._build_reasoning_kwargs()
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": "Generate the content now."}
                 ],
-                temperature=temperature
+                temperature=temperature,
+                **reasoning_kwargs
             )
             result = response.choices[0].message.content
             logger.debug("[Clients][generate_markdown] Belief: Markdown получен успешно | Input: system_prompt, temperature | Expected: str")
@@ -119,6 +147,7 @@ class LlmClient:
 """
 
         try:
+            reasoning_kwargs = self._build_reasoning_kwargs()
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
@@ -126,7 +155,8 @@ class LlmClient:
                     {"role": "user", "content": "Верните исправленный JSON сейчас."}
                 ],
                 temperature=0.0,
-                response_format={"type": "json_object"}
+                response_format={"type": "json_object"},
+                **reasoning_kwargs
             )
             result = response.choices[0].message.content
             logger.debug("[Clients][repair_json_once] Belief: JSON отремонтирован | Input: broken_json | Expected: str")
