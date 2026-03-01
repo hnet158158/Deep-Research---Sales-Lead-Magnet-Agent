@@ -60,17 +60,17 @@ class LlmClient:
         logger.debug("[Clients][_build_reasoning_kwargs] Belief: Thinking budget передан через extra_body только для Gemini | Input: model, reasoning_budget | Expected: dict")
         return kwargs
 
-    def generate_json(self, system_prompt: str, temperature: float = 0.7) -> str:
+    def generate_json(self, system_prompt: str, user_prompt: str, temperature: float = 0.7) -> str:
         """
         Генерирует JSON ответ от LLM.
 
         # START_CONTRACT_generate_json
-        # Input: system_prompt (str), temperature (float)
+        # Input: system_prompt (str), user_prompt (str), temperature (float)
         # Russian Intent: Получить JSON ответ от LLM для структурированных данных
         # Output: str - raw JSON строка
         # END_CONTRACT_generate_json
         """
-        logger.debug("[Clients][generate_json] Belief: Генерация JSON от LLM | Input: system_prompt, temperature | Expected: str")
+        logger.debug("[Clients][generate_json] Belief: Генерация JSON от LLM | Input: system_prompt, user_prompt, temperature | Expected: str")
 
         try:
             reasoning_kwargs = self._build_reasoning_kwargs()
@@ -78,30 +78,30 @@ class LlmClient:
                 model=self.model,
                 messages=[
                     {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": "Generate the JSON response now."}
+                    {"role": "user", "content": user_prompt}
                 ],
                 temperature=temperature,
                 response_format={"type": "json_object"},
                 **reasoning_kwargs
             )
             result = response.choices[0].message.content
-            logger.debug("[Clients][generate_json] Belief: JSON получен успешно | Input: system_prompt, temperature | Expected: str")
+            logger.debug("[Clients][generate_json] Belief: JSON получен успешно | Input: system_prompt, user_prompt, temperature | Expected: str")
             return result
         except Exception as e:
             logger.error(f"[Clients][generate_json] LLM error: {e}")
             raise
 
-    def generate_markdown(self, system_prompt: str, temperature: float = 0.7) -> str:
+    def generate_markdown(self, system_prompt: str, user_prompt: str, temperature: float = 0.7) -> str:
         """
         Генерирует Markdown текст от LLM.
 
         # START_CONTRACT_generate_markdown
-        # Input: system_prompt (str), temperature (float)
+        # Input: system_prompt (str), user_prompt (str), temperature (float)
         # Russian Intent: Получить Markdown текст от LLM
         # Output: str - Markdown текст
         # END_CONTRACT_generate_markdown
         """
-        logger.debug("[Clients][generate_markdown] Belief: Генерация Markdown от LLM | Input: system_prompt, temperature | Expected: str")
+        logger.debug("[Clients][generate_markdown] Belief: Генерация Markdown от LLM | Input: system_prompt, user_prompt, temperature | Expected: str")
 
         try:
             reasoning_kwargs = self._build_reasoning_kwargs()
@@ -109,13 +109,13 @@ class LlmClient:
                 model=self.model,
                 messages=[
                     {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": "Generate the content now."}
+                    {"role": "user", "content": user_prompt}
                 ],
                 temperature=temperature,
                 **reasoning_kwargs
             )
             result = response.choices[0].message.content
-            logger.debug("[Clients][generate_markdown] Belief: Markdown получен успешно | Input: system_prompt, temperature | Expected: str")
+            logger.debug("[Clients][generate_markdown] Belief: Markdown получен успешно | Input: system_prompt, user_prompt, temperature | Expected: str")
             return result
         except Exception as e:
             logger.error(f"[Clients][generate_markdown] LLM error: {e}")
@@ -133,7 +133,7 @@ class LlmClient:
         """
         logger.debug("[Clients][repair_json_once] Belief: Repair-pass для JSON | Input: broken_json | Expected: str")
 
-        repair_prompt = f"""Роль: Специалист по ремонту JSON
+        repair_system_prompt = """Роль: Специалист по ремонту JSON
 Ваша задача - исправить следующий сломанный JSON и вернуть ТОЛЬКО валидный JSON.
 
 Инструкции:
@@ -142,17 +142,20 @@ class LlmClient:
 3. Верните ТОЛЬКО исправленный JSON, без объяснений или markdown-ограничителей.
 4. НЕ изменяйте данные, только исправляйте синтаксис.
 
-Сломанный JSON:
-{broken_json}
 """
+
+        repair_user_prompt = f"""Сломанный JSON:
+{broken_json}
+
+Верните исправленный JSON сейчас."""
 
         try:
             reasoning_kwargs = self._build_reasoning_kwargs()
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
-                    {"role": "system", "content": repair_prompt},
-                    {"role": "user", "content": "Верните исправленный JSON сейчас."}
+                    {"role": "system", "content": repair_system_prompt},
+                    {"role": "user", "content": repair_user_prompt}
                 ],
                 temperature=0.0,
                 response_format={"type": "json_object"},

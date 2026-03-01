@@ -6,7 +6,7 @@ Prompt & Structured Schema Layer
 import json
 import logging
 import re
-from typing import List
+from typing import List, Tuple
 from pydantic import BaseModel, Field, field_validator
 
 logger = logging.getLogger(__name__)
@@ -62,19 +62,19 @@ class LeadMagnetStructureModel(BaseModel):
         return v
 
 
-def build_query_prompt(topic: str, query_count: int) -> str:
+def build_query_prompt(topic: str, query_count: int) -> Tuple[str, str]:
     """
     Формирует системный промпт для Query Builder.
 
     # START_CONTRACT_build_query_prompt
     # Input: topic (str), query_count (int)
     # Russian Intent: Сформировать промпт для генерации поисковых запросов
-    # Output: str - системный промпт
+    # Output: Tuple[str, str] - системный и пользовательский промпты
     # END_CONTRACT_build_query_prompt
     """
-    logger.debug("[Schemas][build_query_prompt] Belief: Формирование промпта Query Builder | Input: topic, query_count | Expected: str")
+    logger.debug("[Schemas][build_query_prompt] Belief: Формирование промптов Query Builder | Input: topic, query_count | Expected: Tuple[str, str]")
 
-    prompt = f"""Роль: Агент по уточнению поисковых запросов
+    system_prompt = f"""Роль: Агент по уточнению поисковых запросов
 Вы уточняете тему пользователя в целевые поисковые запросы для глубокого исследования.
 
 Цель: Предоставить {query_count} хорошо сформулированных, уникальных поисковых запросов на основе темы пользователя. Эти запросы должны быть направлены на глубокое исследование темы.
@@ -83,25 +83,28 @@ def build_query_prompt(topic: str, query_count: int) -> str:
 1. Анализ ввода пользователя: Определите точные концепции или ключевые слова в теме пользователя. НЕ вводите побочные темы.
 2. Генерация запросов: Создайте ровно {query_count} уникальных поисковых запросов. Запросы должны исследовать разные аспекты темы (например: ценообразование, текущие тренды, конкурентная среда), чтобы собрать разносторонний контекст.
 3. Формат вывода: Верните строгий JSON массив строк, содержащий запросы.
-
-Тема пользователя: "{topic}"
 """
-    return prompt
+
+    user_prompt = f"""Тема пользователя: "{topic}"
+
+Сгенерируйте ответ сейчас.
+"""
+    return system_prompt, user_prompt
 
 
-def build_structure_prompt(research_context: str, chapter_count: int) -> str:
+def build_structure_prompt(research_context: str, chapter_count: int) -> Tuple[str, str]:
     """
     Формирует системный промпт для Structure Planner.
 
     # START_CONTRACT_build_structure_prompt
     # Input: research_context (str), chapter_count (int)
     # Russian Intent: Сформировать промпт для планирования структуры лид-магнита
-    # Output: str - системный промпт
+    # Output: Tuple[str, str] - системный и пользовательский промпты
     # END_CONTRACT_build_structure_prompt
     """
-    logger.debug("[Schemas][build_structure_prompt] Belief: Формирование промпта Structure Planner | Input: research_context, chapter_count | Expected: str")
+    logger.debug("[Schemas][build_structure_prompt] Belief: Формирование промптов Structure Planner | Input: research_context, chapter_count | Expected: Tuple[str, str]")
 
-    prompt = f"""Роль: Руководитель исследований и планировщик проекта
+    system_prompt = f"""Роль: Руководитель исследований и планировщик проекта
 Ваша задача - создать всестороннее, основанное на исследованиях оглавление для лид-магнита на основе предоставленного контекста исследований.
 
 Инструкции:
@@ -115,11 +118,14 @@ def build_structure_prompt(research_context: str, chapter_count: int) -> str:
    - "chapters": Массив объектов, где каждый объект содержит:
      - "title": Заголовок главы
      - "prompt": Исчерпывающие, пошаговые инструкции для писателя о том, что нужно охватить в этой главе на основе исследований. Включите точки данных для упоминания.
-
-Контекст исследований:
-{research_context}
 """
-    return prompt
+
+    user_prompt = f"""Контекст исследований:
+{research_context}
+
+Сгенерируйте ответ сейчас.
+"""
+    return system_prompt, user_prompt
 
 
 def build_chapter_writer_prompt(
@@ -129,17 +135,17 @@ def build_chapter_writer_prompt(
     research_context: str,
     word_limit: int,
     keep_links: bool = True
-) -> str:
+) -> Tuple[str, str]:
     """
     Формирует промпт для написания главы.
 
     # START_CONTRACT_build_chapter_writer_prompt
     # Input: main_title, chapter_title, chapter_prompt, research_context, word_limit, keep_links
     # Russian Intent: Сформировать промпт для написания отдельной главы
-    # Output: str - промпт для LLM
+    # Output: Tuple[str, str] - системный и пользовательский промпты для LLM
     # END_CONTRACT_build_chapter_writer_prompt
     """
-    logger.debug("[Schemas][build_chapter_writer_prompt] Belief: Формирование промпта Chapter Writer | Input: main_title, chapter_title, chapter_prompt, research_context, word_limit, keep_links | Expected: str")
+    logger.debug("[Schemas][build_chapter_writer_prompt] Belief: Формирование промптов Chapter Writer | Input: main_title, chapter_title, chapter_prompt, research_context, word_limit, keep_links | Expected: Tuple[str, str]")
 
     link_rule = (
         "- Добавляйте встроенные цитаты в формате Markdown, такие как [Название источника](URL), при ссылке на факты из исследований."
@@ -147,7 +153,7 @@ def build_chapter_writer_prompt(
         else "- НЕ добавляйте URL и Markdown-ссылки; передавайте факты без ссылок, в чистом тексте."
     )
 
-    prompt = f"""Роль: Помощник-писатель по исследованиям
+    system_prompt = f"""Роль: Помощник-писатель по исследованиям
 Ваша задача - написать одну главу для лид-магнита.
 
 Руководящие принципы:
@@ -163,28 +169,31 @@ def build_chapter_writer_prompt(
 4. Если в research_context нет точных данных по теме главы, НЕ выдумывайте аналогии из других сфер (например, из ЖКХ или тяжелой промышленности) — опишите процесс логически.
 - Никогда не пишите выводов или обобщений в конце главы (для этого есть финальное заключение).
 - {link_rule}
+"""
 
-Заголовок лид-магнита: "{main_title}"
+    user_prompt = f"""Заголовок лид-магнита: "{main_title}"
 Текущий заголовок главы: "{chapter_title}"
 Инструкции для главы: "{chapter_prompt}"
 
 Доступный контекст исследований:
 {research_context}
+
+Сгенерируйте ответ сейчас.
 """
-    return prompt
+    return system_prompt, user_prompt
 
 
-def build_final_editor_prompt(assembled_draft: str, keep_links: bool = True) -> str:
+def build_final_editor_prompt(assembled_draft: str, keep_links: bool = True) -> Tuple[str, str]:
     """
     Формирует промпт для финального редактирования.
 
     # START_CONTRACT_build_final_editor_prompt
     # Input: assembled_draft (str), keep_links (bool)
     # Russian Intent: Сформировать промпт для финальной полировки текста
-    # Output: str - промпт для LLM
+    # Output: Tuple[str, str] - системный и пользовательский промпты для LLM
     # END_CONTRACT_build_final_editor_prompt
     """
-    logger.debug("[Schemas][build_final_editor_prompt] Belief: Формирование промпта Final Editor | Input: assembled_draft, keep_links | Expected: str")
+    logger.debug("[Schemas][build_final_editor_prompt] Belief: Формирование промптов Final Editor | Input: assembled_draft, keep_links | Expected: Tuple[str, str]")
 
     link_rule = (
         "- Сохраните все существующие Markdown-ссылки в тексте (URL и анкоры)."
@@ -192,7 +201,7 @@ def build_final_editor_prompt(assembled_draft: str, keep_links: bool = True) -> 
         else "- Удалите все Markdown-ссылки, сохранив только читаемый текст без URL."
     )
 
-    prompt = f"""Роль: Легкий финальный редактор Markdown
+    system_prompt = f"""Роль: Легкий финальный редактор Markdown
 Вы выполняете ТОЛЬКО мягкую полировку, без переписывания содержания и без изменения объема секций.
 
 Инструкции:
@@ -209,11 +218,14 @@ def build_final_editor_prompt(assembled_draft: str, keep_links: bool = True) -> 
 - Верните финальный текст в чистом Markdown.
 - Все названия разделов должны быть на русском языке. 
 - если строка начинается с ## Глава X, а следующая строка — ## Глава X. Название, первую нужно удалять, чтобы избежать дублирования заголовков.
-
-Содержимое черновика:
-{assembled_draft}
 """
-    return prompt
+
+    user_prompt = f"""Содержимое черновика:
+{assembled_draft}
+
+Сгенерируйте ответ сейчас.
+"""
+    return system_prompt, user_prompt
 
 
 def build_section_editor_prompt(
@@ -222,17 +234,17 @@ def build_section_editor_prompt(
     min_words: int,
     max_words: int,
     keep_links: bool = True
-) -> str:
+) -> Tuple[str, str]:
     """
     Формирует промпт покомпонентного редактирования секции с контролем длины.
 
     # START_CONTRACT_build_section_editor_prompt
     # Input: section_name (str), section_markdown (str), min_words (int), max_words (int), keep_links (bool)
     # Russian Intent: Отредактировать одну секцию и удержать длину в заданном диапазоне
-    # Output: str - промпт для LLM
+    # Output: Tuple[str, str] - системный и пользовательский промпты для LLM
     # END_CONTRACT_build_section_editor_prompt
     """
-    logger.debug("[Schemas][build_section_editor_prompt] Belief: Формирование промпта секционного редактора | Input: section_name, section_markdown, min_words, max_words, keep_links | Expected: str")
+    logger.debug("[Schemas][build_section_editor_prompt] Belief: Формирование промптов секционного редактора | Input: section_name, section_markdown, min_words, max_words, keep_links | Expected: Tuple[str, str]")
 
     link_rule = (
         "- Сохраните и не изменяйте существующие Markdown-ссылки и URL."
@@ -240,7 +252,7 @@ def build_section_editor_prompt(
         else "- Удалите все URL и Markdown-ссылки, сохранив только читаемый текст без ссылок."
     )
 
-    prompt = f"""Роль: Редактор отдельной секции лид-магнита
+    system_prompt = f"""Роль: Редактор отдельной секции лид-магнита
 Ваша задача — улучшить только одну секцию, сохранив ее смысл, структуру и размер.
 
 Жесткие ограничения:
@@ -256,11 +268,14 @@ def build_section_editor_prompt(
 - Легкая стилистическая правка и читаемость без перефразирования всего текста.
 
 Верните только Markdown этой секции.
-
-Текст секции:
-{section_markdown}
 """
-    return prompt
+
+    user_prompt = f"""Текст секции:
+{section_markdown}
+
+Сгенерируйте ответ сейчас.
+"""
+    return system_prompt, user_prompt
 
 
 def normalize_raw_json(raw: str) -> str:

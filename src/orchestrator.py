@@ -141,7 +141,7 @@ class GenerationOrchestrator:
         """
         logger.debug("[Orchestrator][_edit_section_with_length_guard] Belief: Секционное редактирование | Input: section_name, section_markdown | Expected: str")
         min_words, max_words = self._build_word_range(section_markdown)
-        prompt = build_section_editor_prompt(
+        system_prompt, user_prompt = build_section_editor_prompt(
             section_name,
             section_markdown,
             min_words,
@@ -149,7 +149,8 @@ class GenerationOrchestrator:
             keep_links=self.ui_settings.keep_links
         )
         edited = self.llm_client.generate_markdown(
-            prompt,
+            system_prompt,
+            user_prompt,
             temperature=self.ui_settings.editor_temperature
         )
         edited_count = self._count_words(edited)
@@ -158,7 +159,7 @@ class GenerationOrchestrator:
             return edited
 
         logger.debug("[Orchestrator][_edit_section_with_length_guard] Belief: Повторная попытка редактирования секции | Input: section_name, min_words, max_words | Expected: str")
-        retry_prompt = build_section_editor_prompt(
+        retry_system_prompt, retry_user_prompt = build_section_editor_prompt(
             section_name,
             section_markdown,
             min_words,
@@ -166,7 +167,8 @@ class GenerationOrchestrator:
             keep_links=self.ui_settings.keep_links
         )
         retried = self.llm_client.generate_markdown(
-            retry_prompt,
+            retry_system_prompt,
+            retry_user_prompt,
             temperature=self.ui_settings.editor_temperature
         )
         retried_count = self._count_words(retried)
@@ -183,8 +185,8 @@ class GenerationOrchestrator:
         yield (emit_log(stage, "Генерация поисковых запросов..."), None, None)
 
         try:
-            prompt = build_query_prompt(topic, query_count=5)
-            raw_output = self.llm_client.generate_json(prompt, temperature=0.3)
+            system_prompt, user_prompt = build_query_prompt(topic, query_count=5)
+            raw_output = self.llm_client.generate_json(system_prompt, user_prompt, temperature=0.3)
             query_model = parse_query_output(raw_output, expected_count=5, llm_client=self.llm_client)
 
             logger.debug(f"[Orchestrator][_run_query_builder] Belief: Запросы сгенерированы | Input: topic | Expected: List[str], Count: {len(query_model.queries)}")
@@ -227,8 +229,8 @@ class GenerationOrchestrator:
         yield (emit_log(stage, "Планирование структуры документа..."), None, None)
 
         try:
-            prompt = build_structure_prompt(research_context, self.ui_settings.chapter_count)
-            raw_output = self.llm_client.generate_json(prompt, temperature=0.5)
+            system_prompt, user_prompt = build_structure_prompt(research_context, self.ui_settings.chapter_count)
+            raw_output = self.llm_client.generate_json(system_prompt, user_prompt, temperature=0.5)
             structure = parse_structure_output(raw_output, expected_chapters=self.ui_settings.chapter_count, llm_client=self.llm_client)
 
             logger.debug(f"[Orchestrator][_run_structure_planner] Belief: Структура спланирована | Input: research_context | Expected: dict, Chapters: {len(structure.chapters)}")
@@ -248,7 +250,7 @@ class GenerationOrchestrator:
             yield (emit_log(stage, f"Написание главы {i}/{len(structure.chapters)}..."), None, None)
 
             try:
-                prompt = build_chapter_writer_prompt(
+                system_prompt, user_prompt = build_chapter_writer_prompt(
                     main_title=structure.title,
                     chapter_title=chapter_plan.title,
                     chapter_prompt=chapter_plan.prompt,
@@ -256,7 +258,11 @@ class GenerationOrchestrator:
                     word_limit=self.ui_settings.words_per_chapter,
                     keep_links=self.ui_settings.keep_links
                 )
-                chapter_text = self.llm_client.generate_markdown(prompt, temperature=self.ui_settings.temperature)
+                chapter_text = self.llm_client.generate_markdown(
+                    system_prompt,
+                    user_prompt,
+                    temperature=self.ui_settings.temperature
+                )
                 chapters.append(chapter_text)
 
                 logger.debug(f"[Orchestrator][_run_chapter_writer] Belief: Глава написана | Input: chapter_title={chapter_plan.title} | Expected: str")
@@ -311,12 +317,13 @@ class GenerationOrchestrator:
             else:
                 draft_content = draft  # Если файл не существует, используем как есть
 
-            editor_prompt = build_final_editor_prompt(
+            editor_system_prompt, editor_user_prompt = build_final_editor_prompt(
                 draft_content,
                 keep_links=self.ui_settings.keep_links
             )
             final_markdown = self.llm_client.generate_markdown(
-                editor_prompt,
+                editor_system_prompt,
+                editor_user_prompt,
                 temperature=self.ui_settings.editor_temperature
             )
 
